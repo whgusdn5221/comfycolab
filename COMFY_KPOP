@@ -1,0 +1,225 @@
+{
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/whgusdn5221/comfycolab/blob/main/COMFY_KPOP\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# @title 0단계: 마운트\n",
+        "from google.colab import drive\n",
+        "drive.mount('/content/drive')"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "fypfit5vInBx",
+        "outputId": "15972837-70cd-4d43-ed50-fb96a34e043b"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Mounted at /content/drive\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "#@title 📥 1단계: 모델 선택 다운로드 (로컬 SSD)\n",
+        "#@markdown 원하는 모델을 체크하고 실행하세요. (코랩 SSD `/content/ComfyUI/models`에 저장됩니다.)\n",
+        "\n",
+        "#@markdown ---\n",
+        "#@markdown ### **[Qwen-VL 필수 세트]**\n",
+        "qwen_checkpoints = True #@param {type:\"boolean\"}\n",
+        "qwen_clip_vae = True #@param {type:\"boolean\"}\n",
+        "\n",
+        "#@markdown ### **[AnyPose LoRA 세트]**\n",
+        "anypose_loras = True #@param {type:\"boolean\"}\n",
+        "\n",
+        "#@markdown ### **[얼굴 고정 PuLID]**\n",
+        "pulid_flux = True #@param {type:\"boolean\"}\n",
+        "insightface_antelopev2 = True #@param {type:\"boolean\"}\n",
+        "#@markdown ---\n",
+        "\n",
+        "import os\n",
+        "\n",
+        "MODEL_BASE = \"/content/ComfyUI/models\"\n",
+        "os.makedirs(f\"{MODEL_BASE}/checkpoints/qwen\", exist_ok=True)\n",
+        "os.makedirs(f\"{MODEL_BASE}/clip/qwen\", exist_ok=True)\n",
+        "os.makedirs(f\"{MODEL_BASE}/vae\", exist_ok=True)\n",
+        "os.makedirs(f\"{MODEL_BASE}/loras\", exist_ok=True)\n",
+        "os.makedirs(f\"{MODEL_BASE}/pulid\", exist_ok=True)\n",
+        "os.makedirs(f\"{MODEL_BASE}/insightface/models/antelopev2\", exist_ok=True)\n",
+        "\n",
+        "def dl(url, path, name):\n",
+        "    target = os.path.join(path, name)\n",
+        "    if not os.path.exists(target):\n",
+        "        print(f\"📥 다운로드 중: {name}\")\n",
+        "        !wget -c \"{url}\" -O \"{target}\"\n",
+        "    else: print(f\"✅ 이미 있음: {name}\")\n",
+        "\n",
+        "# Qwen 체크포인트\n",
+        "if qwen_checkpoints:\n",
+        "    dl(\"https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/resolve/main/split_files/diffusion_models/qwen_image_edit_2511_bf16.safetensors\", f\"{MODEL_BASE}/checkpoints/qwen\", \"qwen_image_edit_2511_bf16.safetensors\")\n",
+        "\n",
+        "# Qwen CLIP & VAE\n",
+        "if qwen_clip_vae:\n",
+        "    dl(\"https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors\", f\"{MODEL_BASE}/clip/qwen\", \"qwen_2.5_vl_7b_fp8_scaled.safetensors\")\n",
+        "    dl(\"https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/vae/qwen_image_vae.safetensors\", f\"{MODEL_BASE}/vae\", \"qwen_image_vae.safetensors\")\n",
+        "\n",
+        "# AnyPose LoRAs\n",
+        "if anypose_loras:\n",
+        "    dl(\"https://huggingface.co/lightx2v/Qwen-Image-Edit-2511-Lightning/resolve/main/Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors\", f\"{MODEL_BASE}/loras\", \"Qwen-Image-Edit-Lightning-4steps-V1.0-bf16.safetensors\")\n",
+        "    dl(\"https://huggingface.co/ShYuan/Qwen2.5-VL-AnyPose/resolve/main/2511-AnyPose-base-000006250.safetensors\", f\"{MODEL_BASE}/loras\", \"2511-AnyPose-base-000006250.safetensors\")\n",
+        "    dl(\"https://huggingface.co/ShYuan/Qwen2.5-VL-AnyPose/resolve/main/2511-AnyPose-helper-00006000.safetensors\", f\"{MODEL_BASE}/loras\", \"2511-AnyPose-helper-00006000.safetensors\")\n",
+        "\n",
+        "# PuLID & Insightface\n",
+        "if pulid_flux:\n",
+        "    dl(\"https://huggingface.co/guozhihong/PuLID/resolve/main/pulid_flux_v1.safetensors\", f\"{MODEL_BASE}/pulid\", \"pulid_flux_v1.safetensors\")\n",
+        "\n",
+        "if insightface_antelopev2:\n",
+        "    # 대표 파일 1개만 예시 (실제 구동시 insightface 라이브러리가 나머지를 채울 수 있음)\n",
+        "    dl(\"https://huggingface.co/comfyanonymous/insightface_models/resolve/main/models/antelopev2/scrfd_10g_bnkps.onnx\", f\"{MODEL_BASE}/insightface/models/antelopev2\", \"scrfd_10g_bnkps.onnx\")\n",
+        "\n",
+        "print(\"\\n✨ 선택한 모델 다운로드 완료!\")"
+      ],
+      "metadata": {
+        "cellView": "form",
+        "id": "0H9kFoKTIHMt"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "#@title 📦 2단계: 커스텀 노드 선택 설치 (로컬 SSD)\n",
+        "#@markdown 워크플로우에 필요한 노드를 체크하고 실행하세요.\n",
+        "\n",
+        "#@markdown ---\n",
+        "#@markdown ### **[JSON 워크플로우 필수]**\n",
+        "node_qwen_edit = True #@param {type:\"boolean\"}\n",
+        "node_essentials = True #@param {type:\"boolean\"}\n",
+        "node_kjnodes = True #@param {type:\"boolean\"}\n",
+        "node_rgthree = True #@param {type:\"boolean\"}\n",
+        "\n",
+        "#@markdown ### **[추가 기능]**\n",
+        "node_manager = True #@param {type:\"boolean\"}\n",
+        "node_pulid_flux = True #@param {type:\"boolean\"}\n",
+        "node_controlnet_aux = True #@param {type:\"boolean\"}\n",
+        "#@markdown ---\n",
+        "\n",
+        "import os\n",
+        "%cd /content/ComfyUI/custom_nodes\n",
+        "\n",
+        "def git_dl(url):\n",
+        "    name = url.split(\"/\")[-1]\n",
+        "    if not os.path.exists(name):\n",
+        "        !git clone {url}\n",
+        "    else: print(f\"✅ 이미 설치됨: {name}\")\n",
+        "\n",
+        "if node_manager: git_dl(\"https://github.com/ltdrdata/ComfyUI-Manager\")\n",
+        "if node_qwen_edit: git_dl(\"https://github.com/Comfy-Org/ComfyUI-Qwen-Image-Edit\")\n",
+        "if node_essentials: git_dl(\"https://github.com/cubiq/ComfyUI_essentials\")\n",
+        "if node_kjnodes: git_dl(\"https://github.com/kijai/comfyui-kjnodes\")\n",
+        "if node_rgthree: git_dl(\"https://github.com/rgthree/rgthree-comfy\")\n",
+        "if node_pulid_flux: git_dl(\"https://github.com/xhoxhel/ComfyUI-PuLID-Flux\")\n",
+        "if node_controlnet_aux: git_dl(\"https://github.com/Fannovel16/comfyui_controlnet_aux\")\n",
+        "\n",
+        "# 필수 라이브러리 (PuLID 및 Qwen용)\n",
+        "!pip install insightface onnxruntime-gpu -q\n",
+        "\n",
+        "print(\"\\n🚀 선택한 커스텀 노드 설치 완료!\")"
+      ],
+      "metadata": {
+        "cellView": "form",
+        "id": "ZljXd7GfIKbe"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "#@title ⚡ 3단계: 저장소 선택 및 메인 실행\n",
+        "#@markdown 세션 재시작 후에는 이 블록만 실행해도 복구와 실행이 동시에 됩니다.\n",
+        "\n",
+        "model_source = \"Google_Drive\" #@param [\"Google_Drive\", \"Local_Colab\"]\n",
+        "\n",
+        "import os\n",
+        "from google.colab import drive\n",
+        "\n",
+        "# 1. 경로 및 본체 확인\n",
+        "DRIVE_PATH = \"/content/drive/MyDrive/ComfyUI\"\n",
+        "LOCAL_PATH = \"/content/ComfyUI\"\n",
+        "\n",
+        "if not os.path.exists(LOCAL_PATH):\n",
+        "    !git clone https://github.com/comfyanonymous/ComfyUI\n",
+        "    !pip install -r {LOCAL_PATH}/requirements.txt\n",
+        "    !pip install insightface onnxruntime-gpu\n",
+        "\n",
+        "# 2. 모델 지름길 연결 (Source에 따라 변경)\n",
+        "model_folders = [\"checkpoints\", \"clip\", \"vae\", \"loras\", \"pulid\", \"insightface\", \"ipadapter\", \"controlnet\"]\n",
+        "for folder in model_folders:\n",
+        "    l_p, d_p = f\"{LOCAL_PATH}/models/{folder}\", f\"{DRIVE_PATH}/models/{folder}\"\n",
+        "    os.makedirs(d_p, exist_ok=True)\n",
+        "    if os.path.exists(l_p): !rm -rf {l_p}\n",
+        "    if model_source == \"Google_Drive\": !ln -s {d_p} {l_p}\n",
+        "    else: os.makedirs(l_p, exist_ok=True)\n",
+        "\n",
+        "# 3. 커스텀 노드 연결\n",
+        "l_n, d_n = f\"{LOCAL_PATH}/custom_nodes\", f\"{DRIVE_PATH}/custom_nodes\"\n",
+        "if os.path.exists(l_n): !rm -rf {l_n}\n",
+        "!ln -s {d_n} {l_n}\n",
+        "\n",
+        "# 4. 터널링 및 실행\n",
+        "import subprocess, time\n",
+        "if os.path.exists(\"/content/tunnel.log\"): os.remove(\"/content/tunnel.log\")\n",
+        "subprocess.Popen([\"cloudflared\", \"tunnel\", \"--url\", \"http://127.0.0.1:8188\"], stdout=open(\"/content/tunnel.log\", \"w\"))\n",
+        "time.sleep(8)\n",
+        "\n",
+        "with open(\"/content/tunnel.log\", \"r\") as f:\n",
+        "    import re\n",
+        "    url = re.findall(r\"https://[a-zA-Z0-9-.]+\\.trycloudflare\\.com\", f.read())\n",
+        "    if url: print(f\"\\n🔗 접속 링크: {url[0]}\\n\")\n",
+        "\n",
+        "%cd {LOCAL_PATH}\n",
+        "!python main.py --listen --preview-method auto"
+      ],
+      "metadata": {
+        "cellView": "form",
+        "id": "-lZV3heAINsj"
+      },
+      "execution_count": null,
+      "outputs": []
+    }
+  ],
+  "metadata": {
+    "colab": {
+      "name": "Colab 시작하기",
+      "provenance": [],
+      "gpuType": "T4",
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "display_name": "Python 3",
+      "name": "python3"
+    },
+    "accelerator": "GPU"
+  },
+  "nbformat": 4,
+  "nbformat_minor": 0
+}
